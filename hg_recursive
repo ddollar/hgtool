@@ -47,7 +47,7 @@ def hg_fetch_recursive(command, dir)
 end
 
 def usage
-  puts "usage: hg_recursive <fetch|pull> [dir]"
+  puts "usage: hg_recursive <#{COMMANDS.keys.join("|")}> [dir]"
   exit
 end
   
