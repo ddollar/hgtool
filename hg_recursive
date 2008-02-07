@@ -1,0 +1,64 @@
+#!/usr/bin/env ruby -wKU
+
+require 'pp'
+
+COMMANDS = {
+  :fetch => { :command_order => :post },
+  :push  => { :command_order => :pre  }
+}
+
+def hg_fetch_recursive(command, dir)
+
+  # is this how we detect if we're a mercurial repository?
+  if !File.exists?(File.join(dir, '.hg'))
+    puts "current directory is not a mercurial repository"
+    exit 1
+  end
+
+  # set up these hacky procs so that we can programatically change the order
+  # in which we call them without being even uglier than this
+  do_recurse = Proc.new do |command, parent_directory|
+    # should use a better method to determine if we're no longer local
+    if parent_directory[0..2] != 'ssh' then
+      hg_fetch_recursive(command, parent_directory)
+    end
+  end
+  do_command = Proc.new do |commmand, dir|
+    puts "\n#{command}: #{dir}"
+    system "cd #{dir} && hg #{command}"
+  end
+
+  File.open(File.join(dir, '.hg', 'hgrc')) do |file|
+    file.each_line do |line|
+      if (match = line.match(/default \= (.*)/)) then
+        case COMMANDS[command][:command_order]
+        when :post
+          do_recurse.call command, match[1]
+          do_command.call command, dir
+        when :pre
+          do_command.call command, dir
+          do_recurse.call command, match[1]
+        else
+          raise "Unknown command_order %s" % COMMANDS[command][:command_order]
+        end
+      end
+    end
+  end
+end
+
+def usage
+  puts "usage: hg_recursive <fetch|pull> [dir]"
+  exit
+end
+  
+usage if !(1..2).include?(ARGV.length)
+
+command = ARGV[0].to_sym
+dir = ARGV[1] || Dir.pwd
+
+usage if !COMMANDS.keys.include?(command)
+
+hg_fetch_recursive(command, dir)
+puts "\n"
+
+system "cd #{dir}"
