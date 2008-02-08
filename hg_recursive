@@ -25,7 +25,7 @@ def hg_fetch_recursive(command, dir)
   end
   do_command = Proc.new do |commmand, dir|
     puts "\n#{command}: #{dir}"
-    system "cd #{dir} && hg #{command}"
+    system "cd #{dir} && hg #{command} && hg update"
   end
 
   File.open(File.join(dir, '.hg', 'hgrc')) do |file|
