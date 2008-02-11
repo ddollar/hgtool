@@ -1,64 +1,178 @@
 #!/usr/bin/env ruby -wKU
 
+require 'rubygems'
+require 'appscript'
+require 'parse_tree'
 require 'pp'
 
-COMMANDS = {
-  :fetch => { :command_order => :post },
-  :push  => { :command_order => :pre  }
-}
+# requires the following gems
+# appscript ParseTree
 
-def hg_fetch_recursive(command, dir)
+# change me
+ROOT_DIR="/Users/ddollar/Development/emcien.com"
 
-  # is this how we detect if we're a mercurial repository?
-  if !File.exists?(File.join(dir, '.hg'))
-    puts "current directory is not a mercurial repository"
-    exit 1
-  end
-
-  # set up these hacky procs so that we can programatically change the order
-  # in which we call them without being even uglier than this
-  do_recurse = Proc.new do |command, parent_directory|
-    # should use a better method to determine if we're no longer local
-    if parent_directory[0..2] != 'ssh' then
-      hg_fetch_recursive(command, parent_directory)
+class Array
+  def maximum
+    max = self[0]
+    self.each do |value|
+      max = value if value > max
     end
+    max
   end
-  do_command = Proc.new do |commmand, dir|
-    puts "\n#{command}: #{dir}"
-    system "cd #{dir} && hg #{command} && hg update"
-  end
+end
 
-  File.open(File.join(dir, '.hg', 'hgrc')) do |file|
-    file.each_line do |line|
-      if (match = line.match(/default \= (.*)/)) then
-        case COMMANDS[command][:command_order]
-        when :post
-          do_recurse.call command, match[1]
-          do_command.call command, dir
-        when :pre
-          do_command.call command, dir
-          do_recurse.call command, match[1]
-        else
-          raise "Unknown command_order %s" % COMMANDS[command][:command_order]
+class String
+  def squish
+    dup.squish!
+  end
+  def squish!
+    strip!
+    gsub!(/\s+/, ' ')
+    self
+  end
+  def starts_with?(needle)
+    self[0..(needle.length-1)] == needle
+  end
+end
+
+module ExecutableClass
+  
+  def execute(args)
+    command = commands[args.shift] || usage
+    usage if args.length < command[:required_arguments].length
+    usage if args.length > command[:arguments].length
+    self.method(command[:method]).call(*args)
+  end
+  
+  def usage
+    puts "usage: #{File.basename(__FILE__)} <command> [options]"
+    puts
+    puts "commands:"
+    puts
+    justify = commands.keys.collect { |item| item.length }.maximum
+    show_arguments = Proc.new do |args, lchar, rchar|
+      args.collect { |item| "#{lchar}#{item}#{rchar}" }.join(" ")
+    end
+    commands.each do |command, args|
+      final_args = []
+      final_args += args[:required_arguments].collect { |item| "<#{item}>"}
+      final_args += args[:optional_arguments].collect { |item| "[#{item}]"}
+      puts "#{command.ljust(justify)} #{final_args.join(' ')}"
+    end
+    exit
+  end
+  
+  private
+  
+  def parse_method(klass, method)
+    parse_tree = ParseTree.translate(klass, method)
+    arguments = []
+    required_arguments = []
+    optional_arguments = []
+    argument_block = parse_tree[2][1][1]
+    argument_block[1..argument_block.length].each do |arg|
+      if !arg.is_a?(Array)
+        arguments.push(arg)
+      else
+        arg[1..arg.length].each do |assignment, name, value|
+          optional_arguments.push(name)
+        end
+      end
+    end
+    parsed = {
+      :method => parse_tree[1],
+      :arguments => arguments,
+      :optional_arguments => optional_arguments,
+      :required_arguments => arguments - optional_arguments
+    }
+  end
+  
+  def commands
+    commands = {}
+    self.methods.find_all do |method|
+      method[0..7] == 'command_'
+    end.each do |method|
+      parsed = parse_method(self.class, method)
+      commands[parsed[:method].to_s.gsub('command_','')] = parsed
+    end
+    commands
+  end
+  
+end
+
+class Mercurial
+  
+  include ExecutableClass
+  
+  def command_deep_fetch(dir=nil)
+    do_command_recursive "fetch", dir || Dir.pwd, :post
+  end
+  
+  def command_deep_push(dir=nil)
+    do_command_recursive "push", dir || Dir.pwd, :pre
+  end
+  
+  def command_auto_clone(branch)
+    project = "#{ROOT_DIR}/#{branch}"
+    system "cd #{ROOT_DIR} && hg clone trunk #{branch} && cd #{project} && rake emcien:optimizer:build && mate ."
+    
+    iterm = Appscript::app('iTerm')
+    window = iterm.make(:new => :terminal)
+    window.number(:columns => 100)
+    window.number(:rows => 20)
+
+    tabs = []
+    3.times do 
+      window.launch_(:session => 'Defaut')
+      tabs << window.sessions.last.get
+    end
+
+    tabs.each { |tab| tab.write(:text => "cd #{project}") }
+
+    tabs[0].write(:text => 'script/server')
+    tabs[1].write(:text => 'script/backgroundrb run')
+    tabs[2].write(:text => 'script/console')
+    
+    system "open http://localhost:3000"
+  end
+  
+  private 
+  
+  def do_command_recursive(command, dir, order)
+    if !File.exists?(File.join(dir, '.hg'))
+      puts "current directory is not a mercurial repository"
+      exit 1
+    end
+    File.open(File.join(dir, '.hg', 'hgrc')) do |file|
+      file.each_line do |line|
+        if (match = line.match(/default \= (.*)/)) then
+          case order
+          when :post
+            do_recurse command, match[1], order
+            do_command command, dir
+          when :pre
+            do_command command, dir
+            do_recurse command, match[1], order
+          else
+            raise "Unknown command_order %s" % COMMANDS[command][:command_order]
+          end
         end
       end
     end
   end
-end
-
-def usage
-  puts "usage: hg_recursive <#{COMMANDS.keys.join("|")}> [dir]"
-  exit
-end
   
-usage if !(1..2).include?(ARGV.length)
+  def do_command(command, dir)
+    puts "\n#{command}: #{dir}"
+    system "cd #{dir} && hg #{command} && hg update"
+  end
+  
+  def do_recurse(command, parent_dir, order)
+    if parent_dir[0..2] != 'ssh' then
+      do_command_recursive(command, parent_dir, order)
+    end
+  end
+  
+end
 
-command = ARGV[0].to_sym
-dir = ARGV[1] || Dir.pwd
-
-usage if !COMMANDS.keys.include?(command)
-
-hg_fetch_recursive(command, dir)
-puts "\n"
-
-system "cd #{dir}"
+hgtool = Mercurial.new
+hgtool.execute(ARGV)
