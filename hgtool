@@ -133,7 +133,9 @@ class Mercurial
     tabs[1].write(:text => 'script/backgroundrb run')
     tabs[2].write(:text => 'script/console')
     
+    sleep 5
     system "open http://localhost:3000"
+    
   end
   
   private 
