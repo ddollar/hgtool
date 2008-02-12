@@ -90,7 +90,7 @@ module ExecutableClass
   def commands
     commands = {}
     self.methods.find_all do |method|
-      method[0..7] == 'command_'
+      method.starts_with?('command_')
     end.each do |method|
       parsed = parse_method(self.class, method)
       commands[parsed[:method].to_s.gsub('command_','')] = parsed
@@ -118,12 +118,10 @@ class Mercurial
     
     iterm = Appscript::app('iTerm')
     window = iterm.make(:new => :terminal)
-    window.number(:columns => 100)
-    window.number(:rows => 20)
 
     tabs = []
-    3.times do 
-      window.launch_(:session => 'Defaut')
+    4.times do 
+      window.launch_(:session => 'Default')
       tabs << window.sessions.last.get
     end
 
