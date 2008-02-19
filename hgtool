@@ -53,7 +53,8 @@ module ExecutableClass
     show_arguments = Proc.new do |args, lchar, rchar|
       args.collect { |item| "#{lchar}#{item}#{rchar}" }.join(" ")
     end
-    commands.each do |command, args|
+    commands.keys.sort.each do |command|
+      args = commands[command]
       final_args = []
       final_args += args[:required_arguments].collect { |item| "<#{item}>"}
       final_args += args[:optional_arguments].collect { |item| "[#{item}]"}
@@ -112,10 +113,16 @@ class Mercurial
     do_command_recursive "push", dir || Dir.pwd, :pre
   end
   
-  def command_auto_clone(branch)
+  def command_auto_clone(branch, trunk=nil)
+    trunk ||= "trunk"
     project = "#{ROOT_DIR}/#{branch}"
-    system "cd #{ROOT_DIR} && hg clone trunk #{branch} && cd #{project} && rake emcien:optimizer:build && mate ."
-    
+    system %{"cd #{ROOT_DIR} && hg clone #{trunk} #{branch} && cd #{project} && 
+      rake emcien:optimizer:build && rake simplecsv:build"}.squish
+    command_start_clone(branch)
+  end
+  
+  def command_start_clone(branch)
+    project = "#{ROOT_DIR}/#{branch}"
     iterm = Appscript::app('iTerm')
     window = iterm.make(:new => :terminal)
 
@@ -132,8 +139,9 @@ class Mercurial
     tabs[2].write(:text => 'script/console')
     
     sleep 5
+
+    system "cd #{ROOT_DIR}/#{branch} && mate ."
     system "open http://localhost:3000"
-    
   end
   
   def command_refresh_clones()
