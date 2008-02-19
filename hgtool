@@ -118,7 +118,7 @@ class Mercurial
     project = "#{ROOT_DIR}/#{branch}"
     system %{cd #{ROOT_DIR} && hg clone #{trunk} #{branch} && cd #{project} && 
       rake emcien:optimizer:build && rake simplecsv:build}.squish
-    #command_start_clone(branch)
+    command_start_clone(branch)
   end
   
   def command_start_clone(branch)
