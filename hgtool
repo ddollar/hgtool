@@ -121,7 +121,8 @@ class Mercurial
     command_start_clone(branch)
   end
   
-  def command_start_clone(branch)
+  def command_start_clone(branch, port=nil)
+    port ||= 3000
     project = "#{ROOT_DIR}/#{branch}"
     iterm = Appscript::app('iTerm')
     window = iterm.make(:new => :terminal)
@@ -134,7 +135,7 @@ class Mercurial
 
     tabs.each { |tab| tab.write(:text => "cd #{project}") }
 
-    tabs[0].write(:text => 'script/server')
+    tabs[0].write(:text => "script/server -p #{port}")
     tabs[1].write(:text => 'script/backgroundrb run')
     tabs[2].write(:text => 'script/console')
     
