@@ -3,6 +3,7 @@
 require 'rubygems'
 require 'appscript'
 require 'parse_tree'
+require 'socket'
 require 'pp'
 
 # requires the following gems
@@ -99,6 +100,18 @@ module ExecutableClass
     commands
   end
   
+  def find_unused_port
+    (3000..3100).each do |port|
+      begin
+        socket = TCPServer.new("0.0.0.0", port)
+      rescue
+        next
+      end
+      socket.close
+      return port
+    end
+  end
+  
 end
 
 class Mercurial
@@ -122,7 +135,7 @@ class Mercurial
   end
   
   def command_start_clone(branch, port=nil)
-    port ||= 3000
+    port ||= find_unused_port
     project = "#{ROOT_DIR}/#{branch}"
     iterm = Appscript::app('iTerm')
     window = iterm.make(:new => :terminal)
@@ -142,7 +155,7 @@ class Mercurial
     sleep 5
 
     system "cd #{ROOT_DIR}/#{branch} && mate ."
-    system "open http://localhost:3000"
+    system "open http://localhost:#{port}"
   end
   
   def command_refresh_clones()
