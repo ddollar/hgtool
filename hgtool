@@ -117,23 +117,28 @@ end
 class Mercurial
   
   include ExecutableClass
-  
+
   def command_deep_fetch(dir=nil)
     do_command_recursive "fetch", dir || Dir.pwd, :post
   end
-  
+
   def command_deep_push(dir=nil)
     do_command_recursive "push", dir || Dir.pwd, :pre
   end
-  
+
   def command_auto_clone(branch, trunk=nil)
     trunk ||= "trunk"
-    project = "#{ROOT_DIR}/#{branch}"
-    system %{cd #{ROOT_DIR} && hg clone #{trunk} #{branch} && cd #{project} && 
-      rake emcien:optimizer:build && rake simplecsv:build}.squish
+    system %{cd #{ROOT_DIR} && hg clone #{trunk} #{branch}}.squish
+    command_build_clone(branch)
     command_start_clone(branch)
   end
-  
+
+  def command_build_clone(branch)
+    project = "#{ROOT_DIR}/#{branch}"
+    system %{cd #{project} && rake emcien:optimizer:build && 
+      rake simplecsv:build}.squish
+  end
+
   def command_start_clone(branch, port=nil)
     port ||= find_unused_port
     project = "#{ROOT_DIR}/#{branch}"
