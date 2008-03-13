@@ -135,8 +135,7 @@ class Mercurial
 
   def command_build_clone(branch)
     project = "#{ROOT_DIR}/#{branch}"
-    system %{cd #{project} && rake emcien:optimizer:build && 
-      rake emcien:simplecsv:build}.squish
+    system %{cd #{project} && rake emcien:bootstrap}.squish
   end
 
   def command_start_clone(branch, port=nil)
