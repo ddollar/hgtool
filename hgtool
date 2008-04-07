@@ -4,6 +4,7 @@ require 'rubygems'
 require 'appscript'
 require 'parse_tree'
 require 'socket'
+require 'yaml'
 require 'pp'
 
 # requires the following gems
@@ -141,11 +142,13 @@ class Mercurial
   def command_start_clone(branch, port=nil)
     port ||= find_unused_port
     project = "#{ROOT_DIR}/#{branch}"
+    database_config = YAML::load_file("#{project}/config/database.yml")
+    database = database_config['development']['database']
     iterm = Appscript::app('iTerm')
     window = iterm.make(:new => :terminal)
 
     tabs = []
-    4.times do 
+    5.times do 
       window.launch_(:session => 'Default')
       tabs << window.sessions.last.get
     end
@@ -155,6 +158,7 @@ class Mercurial
     tabs[0].write(:text => "script/server -p #{port}")
     tabs[1].write(:text => 'script/backgroundrb run')
     tabs[2].write(:text => 'script/console')
+    tabs[3].write(:text => "mysql #{database}")
     
     sleep 5
 
