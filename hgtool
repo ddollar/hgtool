@@ -11,7 +11,7 @@ require 'pp'
 # appscript ParseTree
 
 # change me
-ROOT_DIR="/Users/ddollar/Development/emcien.com"
+ROOT_DIR="/Users/ddollar/Development/Emcien"
 
 class Array
   def maximum
